@@ -108,7 +108,8 @@ oauth_cancel_button :: button label which cancels the device verification.
 http_request :: performs a GET http request to the given URL (or a POST with url-encoded body, if form data is passed)
 http_request_cache :: store where http requests get cached according to the HTTP cache rules.
 
-authorization_server_url :: returns the authorization server origin URL.
+authorization_server_url :: returns the authorization server origin URL (<tt>base_url</tt> + <tt>oauth_mount_prefix</tt>), used as the issuer.
+oauth_mount_prefix :: path prefix the server is mounted under, applied to generated endpoint URLs / issuer and to the <tt>request.path</tt> comparisons in the per-feature <tt>check_csrf?</tt> exemptions. <tt>""</tt> by default. Set it (e.g. <tt>"/auth"</tt>, or <tt>oauth_mount_prefix { request.script_name }</tt>) when mounting under a Rack +SCRIPT_NAME+ (e.g. via +Rack::URLMap+) with +prefix+ left empty, so route matching keeps working off +remaining_path+ while URLs and CSRF checks still reflect the mount point.
 oauth_grants_unique_columns :: uniqueness index to use in ON CONFLICT queries (when supported).
 
 == Auth Methods

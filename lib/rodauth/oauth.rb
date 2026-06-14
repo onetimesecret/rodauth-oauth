@@ -9,6 +9,26 @@ module Rodauth
       def auth_server_route(name, *args, &blk)
         routes = route(name, *args, &blk)
 
+        # Rodauth's +route+ macro generates +#{name}_path+/+#{name}_url+ off
+        # +route_path+, which is built from +prefix+ and +base_url+ — neither of
+        # which reflects a Rack +SCRIPT_NAME+ mount point (e.g. +Rack::URLMap+).
+        # Re-generate the OAuth endpoint helpers so they also honor
+        # +oauth_mount_prefix+, keeping discovery-metadata URLs and the
+        # per-feature +check_csrf?+ +request.path+ comparisons aligned with the
+        # browser-absolute path. Route *matching* (which uses +remaining_path+)
+        # is untouched, and non-OAuth Rodauth routes keep the stock helpers.
+        # With the default empty +oauth_mount_prefix+ these are equivalent to
+        # the originals.
+        route_meth = :"#{name}_route"
+        define_method(:"#{name}_path") do |opts = {}|
+          segment = send(route_meth)
+          "#{oauth_mount_prefix}#{route_path(segment, opts)}" if segment
+        end
+        define_method(:"#{name}_url") do |opts = {}|
+          segment = send(route_meth)
+          "#{base_url}#{oauth_mount_prefix}#{route_path(segment, opts)}" if segment
+        end
+
         handle_meth = routes.last
 
         define_method(:"#{handle_meth}_for_auth_server") do
