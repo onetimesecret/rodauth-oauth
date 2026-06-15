@@ -110,7 +110,8 @@ module Rodauth
 
     auth_value_methods(
       :authorization_server_url,
-      :oauth_grants_unique_columns
+      :oauth_grants_unique_columns,
+      :oauth_mount_prefix
     )
 
     auth_methods(
@@ -348,7 +349,30 @@ module Rodauth
     end
 
     def authorization_server_url
-      base_url
+      "#{base_url}#{oauth_mount_prefix}"
+    end
+
+    # Path prefix the authorization server is externally mounted under, honored
+    # when *generating* browser-absolute URLs (discovery metadata, issuer) and
+    # when *comparing* against +request.path+ (the per-feature +check_csrf?+
+    # exemptions). It is intentionally distinct from Rodauth's +prefix+:
+    #
+    # * +prefix+ is folded into +route_path+, so it participates in URL
+    #   generation but is kept in sync with route matching by the host app
+    #   (the routing tree consumes it before +r.rodauth+).
+    # * +oauth_mount_prefix+ targets the case where the server is mounted under
+    #   a Rack +SCRIPT_NAME+ (e.g. via +Rack::URLMap+), which strips the mount
+    #   point from +PATH_INFO+. Route *matching* keeps working off
+    #   +remaining_path+, but +base_url+ and +route_path+ do not include
+    #   +SCRIPT_NAME+, so generated URLs and +request.path+ comparisons would
+    #   otherwise lose the mount point.
+    #
+    # Defaults to "" (a no-op: behavior is identical to upstream). Set it to the
+    # mount path when mounting under a sub-path without setting +prefix+, e.g.
+    # <tt>oauth_mount_prefix "/auth"</tt>, or derive it from the request with
+    # <tt>oauth_mount_prefix { request.script_name }</tt>.
+    def oauth_mount_prefix
+      ""
     end
 
     def template_path(page)
@@ -742,7 +766,11 @@ module Rodauth
     end
 
     def oauth_server_metadata_body(path = nil)
-      issuer = base_url
+      # Derive the issuer from +authorization_server_url+ (which honors
+      # +oauth_mount_prefix+) rather than +base_url+ directly, so the advertised
+      # issuer matches the mount point and any +authorization_server_url+
+      # override.
+      issuer = authorization_server_url
       issuer += "/#{path}" if path
 
       {

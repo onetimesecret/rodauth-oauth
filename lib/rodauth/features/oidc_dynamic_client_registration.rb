@@ -292,7 +292,7 @@ module Rodauth
       registration_access_token = oauth_unique_id_generator
       create_params[oauth_applications_registration_access_token_column] = secret_hash(registration_access_token)
       return_params["registration_access_token"] = registration_access_token
-      return_params["registration_client_uri"] = "#{base_url}/#{registration_client_uri_route}/#{return_params['client_id']}"
+      return_params["registration_client_uri"] = "#{base_url}#{oauth_mount_prefix}/#{registration_client_uri_route}/#{return_params['client_id']}"
     end
   end
 end

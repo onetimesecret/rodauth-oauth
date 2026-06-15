@@ -43,6 +43,24 @@ class RodauthOauthOidcServerMetadataTest < OIDCIntegration
     assert json_body["claims_supported"] == %w[sub iss iat exp aud auth_time email email_verified]
   end
 
+  def test_oidc_openid_configuration_with_mount_prefix
+    rsa_private = OpenSSL::PKey::RSA.generate(2048)
+    rodauth do
+      oauth_mount_prefix "/auth"
+      oauth_application_scopes %w[openid email]
+      oauth_jwt_keys("RS256" => rsa_private)
+    end
+    setup_application
+    get("/.well-known/openid-configuration")
+
+    assert last_response.status == 200
+    assert json_body["issuer"] == "http://example.org/auth"
+    assert json_body["authorization_endpoint"] == "http://example.org/auth/authorize"
+    assert json_body["token_endpoint"] == "http://example.org/auth/token"
+    assert json_body["userinfo_endpoint"] == "http://example.org/auth/userinfo"
+    assert json_body["jwks_uri"] == "http://example.org/auth/jwks"
+  end
+
   def test_oidc_metadata_openid_configuration_cors
     rodauth do
       oauth_application_scopes %w[openid email.email]
