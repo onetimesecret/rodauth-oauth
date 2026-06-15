@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "rack/urlmap"
 
 class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
   include Rack::Test::Methods
@@ -515,6 +516,29 @@ class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
     assert JSON.parse(last_response.body)[
              "tls_client_certificate_bound_access_tokens"
            ] == true
+  end
+
+  def test_oauth_dynamic_client_registration_client_uri_honors_mount_prefix
+    rodauth do
+      oauth_mount_prefix "/auth"
+      oauth_application_scopes %w[read write]
+    end
+    setup_application(:oauth_authorization_code_grant)
+    # Mount under a SCRIPT_NAME (before any header/request, so Rack::Test binds
+    # to the wrapped app) so request.path lines up with the mount-aware
+    # register_path / its CSRF exemption, mirroring a Rack::URLMap deployment.
+    self.app = Rack::URLMap.new("/auth" => app)
+    header "Accept", "application/json"
+
+    post("/auth/register", valid_registration_params)
+    assert last_response.status == 201
+
+    # registration_client_uri is built from base_url + a route segment (not a
+    # *_url helper), so it must prepend oauth_mount_prefix to stay
+    # browser-absolute under the mount.
+    uri = JSON.parse(last_response.body)["registration_client_uri"]
+    assert uri.start_with?("http://example.org/auth/register/"),
+           "expected mount-prefixed registration_client_uri, got #{uri.inspect}"
   end
 
   private
