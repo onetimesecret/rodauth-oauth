@@ -74,6 +74,9 @@ module Rodauth
           redirect_response_error("unsupported_transform_algorithm")
         end
 
+        # An omitted code_challenge_method (nil) is not a member of the supported set, so it is
+        # rejected here: rather than defaulting to "plain" (RFC 7636 §4.3), this server requires
+        # the method to be stated explicitly so a disabled "plain" can never be implicitly chosen.
         redirect_response_error("code_challenge_required") unless oauth_pkce_challenge_methods.include?(challenge_method)
       else
         return unless oauth_require_pkce
