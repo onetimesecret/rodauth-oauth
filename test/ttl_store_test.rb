@@ -3,6 +3,7 @@
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "minitest/autorun"
+require "rodauth/oauth" # bootstraps the Rodauth::OAuth namespace so the test loads standalone
 require "rodauth/oauth/ttl_store"
 
 class RodauthOAuthTtlStoreTest < Minitest::Test
