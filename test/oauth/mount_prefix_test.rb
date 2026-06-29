@@ -79,6 +79,19 @@ class RodauthOAuthMountPrefixTest < RodaIntegration
     assert json_body["token_endpoint"] == "http://example.org/auth/token"
   end
 
+  # No-op contract: with oauth_mount_prefix left at its "" default, discovery must
+  # behave exactly like upstream — issuer is base_url and endpoint URLs carry no
+  # mount point. Guards root-mounted / prefix-only deployments against regressions.
+  def test_discovery_metadata_is_unchanged_without_mount_prefix
+    setup_application(&:load_oauth_server_metadata_route)
+
+    get("/.well-known/oauth-authorization-server")
+
+    assert last_response.status == 200
+    assert json_body["issuer"] == "http://example.org"
+    assert json_body["token_endpoint"] == "http://example.org/token"
+  end
+
   # The management features (oauth_application_management / oauth_grant_management)
   # register their routes via request.on(<route>) rather than auth_server_route, and
   # hand-roll their *_path helpers from route_path. Those helpers feed browser-facing

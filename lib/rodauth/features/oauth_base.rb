@@ -378,6 +378,10 @@ module Rodauth
     # mount path when mounting under a sub-path without setting +prefix+, e.g.
     # <tt>oauth_mount_prefix "/auth"</tt>, or derive it from the request with
     # <tt>oauth_mount_prefix { request.script_name }</tt>.
+    #
+    # Caution: this applies *on top of* +prefix+. If +prefix+ already accounts for
+    # the mount (the server is reachable at +remaining_path+ including the prefix),
+    # leave this empty — setting both to "/auth" doubles the path (+/auth/auth/token+).
     def oauth_mount_prefix
       ""
     end
