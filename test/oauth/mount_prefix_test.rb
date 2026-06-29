@@ -92,6 +92,68 @@ class RodauthOAuthMountPrefixTest < RodaIntegration
     assert json_body["token_endpoint"] == "http://example.org/token"
   end
 
+  # /revoke is the load-bearing case from the issue's do-not-regress note. The
+  # acceptance criteria require /revoke to skip CSRF for the programmatic (JSON,
+  # client-authenticated) call under the mount. With oauth_mount_prefix the
+  # oauth_token_revocation check_csrf? (case request.path when revoke_path) lines
+  # up with the browser-absolute "/auth/revoke", so a JSON revoke is processed.
+  def test_revoke_json_csrf_exempt_with_mount_prefix_under_script_name
+    rodauth do
+      oauth_mount_prefix "/auth"
+    end
+    setup_application(:oauth_token_revocation)
+    mount_under_script_name!
+
+    oauth_app = oauth_application
+    grant = set_oauth_grant_with_token(oauth_application: oauth_app)
+    header "Accept", "application/json"
+    header "Content-Type", "application/json"
+    header "Authorization", "Basic #{authorization_header(
+      username: oauth_app[:client_id],
+      password: 'CLIENT_SECRET'
+    )}"
+
+    post("/auth/revoke", {},
+         input: { token_type_hint: "access_token", token: grant[:token] }.to_json)
+
+    assert last_response.status == 200
+    assert db[:oauth_grants].where(revoked_at: nil).none?,
+           "expected JSON /auth/revoke to be processed (CSRF-exempt) and revoke the token"
+  end
+
+  # Boundary / do-not-regress: even WITH the prefix fix, the gem deliberately keeps
+  # CSRF *enforced* on form-encoded /revoke (oauth_token_revocation returns
+  # !json_request? on the revoke_path match). The mount fix only makes the path
+  # comparison hit; it does not — and must not — exempt form revoke. The RFC 7009
+  # form-encoded exemption stays a host-app (OTS) concern, not "the gem handles it".
+  def test_revoke_form_post_still_csrf_enforced_with_mount_prefix
+    rodauth do
+      oauth_mount_prefix "/auth"
+    end
+    setup_application(:oauth_token_revocation)
+    mount_under_script_name!
+
+    oauth_app = oauth_application
+    grant = set_oauth_grant_with_token(oauth_application: oauth_app)
+    header "Authorization", "Basic #{authorization_header(
+      username: oauth_app[:client_id],
+      password: 'CLIENT_SECRET'
+    )}"
+
+    csrf_enforced =
+      begin
+        post("/auth/revoke", token_type_hint: "access_token", token: grant[:token])
+        last_response.status != 200
+      rescue Roda::RodaPlugins::RouteCsrf::InvalidToken
+        true
+      end
+
+    assert csrf_enforced,
+           "expected the gem to still enforce CSRF on form-encoded /auth/revoke"
+    assert db[:oauth_grants].where(revoked_at: nil).any?,
+           "form revoke must not have gone through"
+  end
+
   # The management features (oauth_application_management / oauth_grant_management)
   # register their routes via request.on(<route>) rather than auth_server_route, and
   # hand-roll their *_path helpers from route_path. Those helpers feed browser-facing
