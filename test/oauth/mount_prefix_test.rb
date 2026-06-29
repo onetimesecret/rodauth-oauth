@@ -79,6 +79,41 @@ class RodauthOAuthMountPrefixTest < RodaIntegration
     assert json_body["token_endpoint"] == "http://example.org/auth/token"
   end
 
+  # The management features (oauth_application_management / oauth_grant_management)
+  # register their routes via request.on(<route>) rather than auth_server_route, and
+  # hand-roll their *_path helpers from route_path. Those helpers feed browser-facing
+  # form actions, csrf_tag targets, links, and the post-revoke redirect, so under a
+  # SCRIPT_NAME mount they must still honor oauth_mount_prefix. Assert the helper
+  # outputs directly (no auth/login needed) via a debug route.
+  def test_management_path_helpers_honor_mount_prefix_under_script_name
+    rodauth do
+      oauth_mount_prefix "/auth"
+    end
+    setup_application(:oauth_application_management, :oauth_grant_management) do |rodauth|
+      rodauth.load_oauth_application_management_routes
+      rodauth.load_oauth_grant_management_routes
+      rodauth.request.is("debug-paths") do
+        body = [
+          rodauth.oauth_applications_path,
+          rodauth.oauth_application_path(42),
+          rodauth.oauth_grants_path,
+          rodauth.oauth_grant_path(7)
+        ].join("|")
+        rodauth.request.halt([200, { "content-type" => "text/plain" }, [body]])
+      end
+    end
+    mount_under_script_name!
+
+    get("/auth/debug-paths")
+
+    assert last_response.status == 200
+    apps_path, app_path, grants_path, grant_path = last_response.body.split("|")
+    assert_equal "/auth/oauth-applications", apps_path
+    assert_equal "/auth/oauth-applications/42", app_path
+    assert_equal "/auth/oauth-grants", grants_path
+    assert_equal "/auth/oauth-grants/7", grant_path
+  end
+
   private
 
   # Re-wrap the application built by the harness so it is served under the
