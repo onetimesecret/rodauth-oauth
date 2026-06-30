@@ -26,7 +26,12 @@ module Rodauth
     )
 
     def oauth_grants_path(opts = {})
-      route_path(oauth_grants_route, opts)
+      # Prepend oauth_mount_prefix so the browser-absolute paths emitted into the
+      # management views (form actions, csrf_tag targets, links) and the post-revoke
+      # redirect keep the Rack SCRIPT_NAME mount point. This route is registered via
+      # request.on(oauth_grants_route) (matched against remaining_path), not
+      # auth_server_route, so it does not get the prefix-aware helper automatically.
+      "#{oauth_mount_prefix}#{route_path(oauth_grants_route, opts)}"
     end
 
     def oauth_grant_path(id)
