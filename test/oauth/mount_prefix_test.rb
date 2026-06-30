@@ -189,6 +189,88 @@ class RodauthOAuthMountPrefixTest < RodaIntegration
     assert_equal "/auth/oauth-grants/7", grant_path
   end
 
+  # The CSRF acceptance criteria name /token, /userinfo, /revoke, /jwks (and the
+  # other programmatic endpoints). Each per-feature check_csrf? compares the
+  # browser-absolute request.path against the route's *_path, so the exemptions
+  # line up only if EVERY auth_server_route endpoint's *_path carries the mount
+  # prefix. Rather than seed a bespoke HTTP+auth flow per endpoint, assert the
+  # contract generically: under the mount, every endpoint *_path equals its
+  # "/auth/<segment>" browser-absolute form (which is exactly what request.path is
+  # for a request to that endpoint). The /token and /revoke end-to-end CSRF flows
+  # above then exercise the two distinct check_csrf? styles (unconditional vs
+  # !json_request?) on top of this.
+  def test_all_endpoint_paths_carry_mount_prefix_under_script_name
+    rodauth do
+      oauth_mount_prefix "/auth"
+      oauth_jwt_keys("RS256" => OpenSSL::PKey::RSA.generate(2048))
+      oauth_application_scopes %w[openid email read write]
+    end
+    setup_application(
+      :oauth_token_revocation, :oauth_token_introspection,
+      :oauth_dynamic_client_registration, :oauth_pushed_authorization_request,
+      :oauth_device_code_grant, :oidc
+    ) do |rodauth|
+      rodauth.request.is("debug-paths") do
+        names = %i[
+          token authorize userinfo revoke introspect jwks
+          register par device_authorization device
+        ]
+        paths = names.each_with_object({}) { |name, h| h[name] = rodauth.public_send(:"#{name}_path") }
+        rodauth.request.halt([200, { "content-type" => "application/json" }, [paths.to_json]])
+      end
+    end
+    mount_under_script_name!
+
+    get("/auth/debug-paths")
+
+    assert last_response.status == 200
+    paths = json_body
+    assert_equal "/auth/token", paths["token"]
+    assert_equal "/auth/authorize", paths["authorize"]
+    assert_equal "/auth/userinfo", paths["userinfo"]
+    assert_equal "/auth/revoke", paths["revoke"]
+    assert_equal "/auth/introspect", paths["introspect"]
+    assert_equal "/auth/jwks", paths["jwks"]
+    assert_equal "/auth/register", paths["register"]
+    assert_equal "/auth/par", paths["par"]
+    assert_equal "/auth/device-authorization", paths["device_authorization"]
+    assert_equal "/auth/device", paths["device"]
+  end
+
+  # The recommended ergonomic form derives the prefix from the request:
+  # oauth_mount_prefix { request.script_name }. Under the mount, request.script_name
+  # is "/auth", so discovery URLs and the issuer are prefixed without hardcoding.
+  def test_dynamic_script_name_form_prefixes_under_mount
+    rodauth do
+      oauth_mount_prefix { request.script_name }
+    end
+    setup_application(&:load_oauth_server_metadata_route)
+    mount_under_script_name!
+
+    get("/auth/.well-known/oauth-authorization-server")
+
+    assert last_response.status == 200
+    assert json_body["issuer"] == "http://example.org/auth"
+    assert json_body["token_endpoint"] == "http://example.org/auth/token"
+  end
+
+  # ...and the same dynamic form must collapse to a no-op when there is no mount:
+  # request.script_name is "" at the root, which is also exactly the SCRIPT_NAME the
+  # internal_request feature synthesizes. So the dynamic form is safe for both
+  # root-mounted deployments and internal requests (no doubling, no raise).
+  def test_dynamic_script_name_form_collapses_without_mount
+    rodauth do
+      oauth_mount_prefix { request.script_name }
+    end
+    setup_application(&:load_oauth_server_metadata_route)
+
+    get("/.well-known/oauth-authorization-server")
+
+    assert last_response.status == 200
+    assert json_body["issuer"] == "http://example.org"
+    assert json_body["token_endpoint"] == "http://example.org/token"
+  end
+
   private
 
   # Re-wrap the application built by the harness so it is served under the
