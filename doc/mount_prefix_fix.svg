@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1020" viewBox="0 0 1200 1020" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#16a34a"/>
+    </marker>
+    <style>
+      .title  { font-size: 26px; font-weight: 700; fill: #0f172a; }
+      .sub    { font-size: 15px; fill: #475569; }
+      .hd     { font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .lbl    { font-size: 13px; fill: #334155; }
+      .mono   { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 13px; }
+      .monob  { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 13px; font-weight: 700; }
+      .small  { font-size: 12px; fill: #64748b; }
+      .ok     { fill: #16a34a; font-weight: 700; }
+      .bad    { fill: #dc2626; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="1020" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="40" y="44" class="title">The Rack::URLMap prefix mismatch in rodauth-oauth</text>
+  <text x="40" y="70" class="sub">Authorization server mounted under a sub-path:  <tspan class="monob" fill="#1e3a8a">Rack::URLMap.new("/auth" =&gt; app)</tspan>  — issue onetimesecret/onetimesecret#3465</text>
+
+  <!-- ===================== Section A: the request split ===================== -->
+  <text x="40" y="116" class="hd">1 ·  One request, split by the mount</text>
+
+  <!-- Browser -->
+  <rect x="40" y="132" width="280" height="78" rx="8" fill="#eff6ff" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="56" y="158" class="lbl" font-weight="700">Browser / SP client</text>
+  <text x="56" y="182" class="mono" fill="#1e293b">POST http://host<tspan fill="#1d4ed8" font-weight="700">/auth/token</tspan></text>
+  <text x="56" y="200" class="small">form-encoded, client-authenticated</text>
+
+  <line x1="320" y1="171" x2="392" y2="171" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- URLMap -->
+  <rect x="396" y="132" width="392" height="78" rx="8" fill="#fefce8" stroke="#eab308" stroke-width="1.5"/>
+  <text x="412" y="158" class="lbl" font-weight="700">Rack::URLMap</text>
+  <text x="412" y="182" class="mono" fill="#1e293b">SCRIPT_NAME = <tspan font-weight="700">"/auth"</tspan>   ·   PATH_INFO = <tspan font-weight="700">"/token"</tspan></text>
+  <text x="412" y="200" class="small">strips the mount point from PATH_INFO</text>
+
+  <line x1="788" y1="171" x2="860" y2="171" stroke="#475569" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- rodauth -->
+  <rect x="864" y="132" width="296" height="78" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="880" y="158" class="lbl" font-weight="700">rodauth-oauth</text>
+  <text x="880" y="182" class="mono" fill="#1e293b">prefix = <tspan font-weight="700">""</tspan>  (left at default)</text>
+  <text x="880" y="200" class="small">never told about the "/auth" mount</text>
+
+  <!-- ===================== Section B: two namespaces ===================== -->
+  <text x="40" y="262" class="hd">2 ·  Inside rodauth, two path namespaces now disagree</text>
+
+  <!-- row helper boxes -->
+  <!-- request.path -->
+  <rect x="40" y="280" width="540" height="60" rx="8" fill="#fff" stroke="#cbd5e1"/>
+  <text x="56" y="304" class="monob" fill="#b91c1c">request.path  =  "/auth/token"</text>
+  <text x="56" y="326" class="small">the full browser-absolute path  ·  SCRIPT_NAME + PATH_INFO</text>
+  <line x1="580" y1="310" x2="636" y2="310" stroke="#475569" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <text x="644" y="300" class="lbl">read by  <tspan class="monob">check_csrf?</tspan>  comparisons</text>
+  <text x="644" y="320" class="lbl">and discovery / issuer emission</text>
+
+  <!-- remaining_path -->
+  <rect x="40" y="352" width="540" height="60" rx="8" fill="#fff" stroke="#cbd5e1"/>
+  <text x="56" y="376" class="monob" fill="#15803d">remaining_path  =  "/token"</text>
+  <text x="56" y="398" class="small">what Roda routes against, post-URLMap</text>
+  <line x1="580" y1="382" x2="636" y2="382" stroke="#475569" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <text x="644" y="372" class="lbl">drives route <tspan font-weight="700">matching</tspan></text>
+  <text x="644" y="392" class="mono" fill="#334155">request.is token_route · route_hash</text>
+
+  <!-- route_path -->
+  <rect x="40" y="424" width="540" height="60" rx="8" fill="#fff" stroke="#cbd5e1"/>
+  <text x="56" y="448" class="monob" fill="#b91c1c">route_path("token")  =  "#{prefix}/token"  =  "/token"</text>
+  <text x="56" y="470" class="small">the building block for every *_path / *_url helper</text>
+  <line x1="580" y1="454" x2="636" y2="454" stroke="#475569" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <text x="644" y="444" class="lbl">feeds <tspan class="monob">token_path</tspan> / <tspan class="monob">token_url</tspan></text>
+  <text x="644" y="464" class="small">— too short by "/auth"</text>
+
+  <text x="40" y="510" class="small" fill="#b91c1c">Matching (remaining_path) is correct; emission &amp; comparison (route_path, base_url) silently drop the mount. Setting Rodauth's own <tspan class="mono">prefix "/auth"</tspan> would re-break matching — rejected.</text>
+
+  <!-- ===================== Section C: before / after ===================== -->
+  <text x="40" y="556" class="hd">3 ·  Three symptoms  →  one decoupling fix</text>
+
+  <!-- BEFORE panel -->
+  <rect x="40" y="574" width="555" height="350" rx="10" fill="#fef2f2" stroke="#f87171" stroke-width="1.5"/>
+  <text x="60" y="602" class="hd" fill="#b91c1c">BEFORE — no setting</text>
+  <text x="60" y="624" class="small" fill="#7f1d1d">request.path ("/auth/token")  vs  *_path / base_url (no "/auth")</text>
+
+  <text x="60" y="656" class="lbl" font-weight="700">① CSRF wrongly enforced</text>
+  <text x="60" y="676" class="mono" fill="#1e293b">case request.path <tspan fill="#b91c1c">"/auth/token"</tspan></text>
+  <text x="60" y="694" class="mono" fill="#1e293b">when token_path <tspan fill="#b91c1c">"/token"</tspan>  →  no match</text>
+  <text x="60" y="712" class="mono">→ super → CSRF on /token  <tspan class="bad">✗</tspan></text>
+
+  <text x="60" y="748" class="lbl" font-weight="700">② Discovery URLs miss the mount</text>
+  <text x="60" y="768" class="mono" fill="#1e293b">token_endpoint = base_url + route_path</text>
+  <text x="60" y="786" class="mono">= "http://host<tspan fill="#b91c1c">/token</tspan>"  <tspan class="bad">✗</tspan></text>
+
+  <text x="60" y="822" class="lbl" font-weight="700">③ Issuer misses the mount</text>
+  <text x="60" y="842" class="mono" fill="#1e293b">issuer = authorization_server_url = base_url</text>
+  <text x="60" y="860" class="mono">= "http://host"  <tspan class="bad">✗</tspan></text>
+
+  <text x="60" y="898" class="small" fill="#7f1d1d">SP clients get CSRF 403s on /token, /userinfo, /revoke;</text>
+  <text x="60" y="914" class="small" fill="#7f1d1d">discovery + iss point outside the mount.</text>
+
+  <!-- AFTER panel -->
+  <rect x="615" y="574" width="545" height="350" rx="10" fill="#f0fdf4" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="635" y="602" class="hd" fill="#15803d">AFTER — oauth_mount_prefix "/auth"</text>
+  <text x="635" y="624" class="mono" fill="#166534">token_path = oauth_mount_prefix + route_path = "/auth/token"</text>
+
+  <text x="635" y="656" class="lbl" font-weight="700">① CSRF exemption lines up</text>
+  <text x="635" y="676" class="mono" fill="#1e293b">request.path <tspan fill="#15803d">"/auth/token"</tspan></text>
+  <text x="635" y="694" class="mono" fill="#1e293b">== token_path <tspan fill="#15803d">"/auth/token"</tspan>  →  match</text>
+  <text x="635" y="712" class="mono">→ exempt  <tspan class="ok">✓</tspan></text>
+
+  <text x="635" y="748" class="lbl" font-weight="700">② Discovery URLs carry the mount</text>
+  <text x="635" y="768" class="mono" fill="#1e293b">= base_url + oauth_mount_prefix + route_path</text>
+  <text x="635" y="786" class="mono">= "http://host<tspan fill="#15803d">/auth/token</tspan>"  <tspan class="ok">✓</tspan></text>
+
+  <text x="635" y="822" class="lbl" font-weight="700">③ Issuer carries the mount</text>
+  <text x="635" y="842" class="mono" fill="#1e293b">= base_url + oauth_mount_prefix</text>
+  <text x="635" y="860" class="mono">= "http://host<tspan fill="#15803d">/auth</tspan>"  <tspan class="ok">✓</tspan></text>
+
+  <rect x="635" y="882" width="505" height="30" rx="6" fill="#dcfce7" stroke="#86efac"/>
+  <text x="648" y="902" class="mono" fill="#166534">route matching still uses remaining_path "/token" → unchanged ✓</text>
+
+  <!-- ===================== Footer: the mechanism + changes ===================== -->
+  <rect x="40" y="942" width="1120" height="58" rx="8" fill="#eef2ff" stroke="#a5b4fc"/>
+  <text x="56" y="966" class="lbl"><tspan font-weight="700">The decoupling:</tspan>  <tspan class="mono">auth_server_route</tspan> redefines each endpoint's <tspan class="mono">*_path/*_url</tspan> to prepend <tspan class="mono">oauth_mount_prefix</tspan> (URL generation + request.path compare),</text>
+  <text x="56" y="986" class="lbl">while route matching keeps using <tspan class="mono">remaining_path</tspan>.  Default <tspan class="mono">""</tspan> = identical to upstream.  Derive it from the request:  <tspan class="monob" fill="#3730a3">oauth_mount_prefix { request.script_name }</tspan></text>
+</svg>
