@@ -23,22 +23,36 @@
 # The script prints a PASS/FAIL table for both modes and exits non-zero unless
 # Mode A exhibits the bug AND Mode B is fully fixed.
 #
-# Usage (uses the local lib/ in this repo; no bundler required):
-#   ruby mount_prefix_poc.rb
+# Usage — run from the gem checkout with the dev/test gems available (it relies on
+# the same sequel/roda/bcrypt/rack-test gems as the test suite). The local lib/ is
+# put first on the load path so it exercises the working-tree code:
+#   bundle install                          # once
+#   bundle exec ruby mount_prefix_poc.rb
 # ---------------------------------------------------------------------------
 
 $LOAD_PATH.unshift File.expand_path("lib", __dir__)
 
-require "json"
-require "base64"
-require "securerandom"
-require "sequel"
-require "roda"
-require "roda/session_middleware"
-require "bcrypt"
-require "rack/test"
-require "rack/urlmap"
-require "rodauth/oauth"
+begin
+  require "json"
+  require "base64"
+  require "securerandom"
+  require "sequel"
+  require "roda"
+  require "roda/session_middleware"
+  require "bcrypt"
+  require "rack/test"
+  require "rack/urlmap"
+  require "rodauth/oauth"
+rescue LoadError => e
+  abort <<~MSG
+    #{e.message}
+
+    This proof of concept depends on the gem's dev/test gems (sequel, roda, bcrypt,
+    rack-test, sqlite3, ...). Run it through bundler from the gem checkout:
+
+      bundle install && bundle exec ruby #{File.basename(__FILE__)}
+  MSG
+end
 
 MOUNT = "/auth"
 HOST  = "http://example.org"
