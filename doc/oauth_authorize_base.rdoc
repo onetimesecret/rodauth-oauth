@@ -8,7 +8,7 @@ This feature depends on the oauth_base feature.
 
 == The authorization form
 
-The authorization request parameters are validated when the authozation form is rendered, and when it is submitted.
+The authorization request parameters are validated when the authorization form is rendered, and when it is submitted.
 
 This matters when you write your own +authorize_view+ instead of using the bundled one; query params passed to the authorization form need to be part of the submitted params.
 
