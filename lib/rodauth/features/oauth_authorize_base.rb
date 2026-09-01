@@ -103,6 +103,10 @@ module Rodauth
     end
 
     def check_valid_scopes?(scp = scopes)
+      # the authorize form submits no "scope[]" param when no checkbox is
+      # ticked, so scopes is nil here; reject it like the base method does.
+      return false unless scp
+
       super(scp - %w[offline_access])
     end
 
