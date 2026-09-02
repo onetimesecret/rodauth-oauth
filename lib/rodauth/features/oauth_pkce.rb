@@ -8,11 +8,11 @@ module Rodauth
 
     auth_value_method :oauth_require_pkce, true
     auth_value_method :oauth_pkce_challenge_method, "S256"
+
+    # TODO: change to false in a major version bump
     # RFC 7636 §4.2 discourages the "plain" transform: it transmits the raw code_verifier,
-    # so an intercepted authorization request exposes it and defeats PKCE. Disabled by
-    # default; set this to true to opt into accepting "plain" challenges end-to-end (authorize,
-    # token, and advertised server metadata).
-    auth_value_method :oauth_pkce_allow_plain_method, false
+    # so an intercepted authorization request exposes it and defeats PKCE.
+    auth_value_method :oauth_pkce_allow_plain_method, true
 
     auth_value_method :oauth_grants_code_challenge_column, :code_challenge
     auth_value_method :oauth_grants_code_challenge_method_column, :code_challenge_method
@@ -21,6 +21,16 @@ module Rodauth
     translatable_method :oauth_code_challenge_required_message, "code challenge required"
     auth_value_method :oauth_unsupported_transform_algorithm_error_code, "invalid_request"
     translatable_method :oauth_unsupported_transform_algorithm_message, "transform algorithm not supported"
+
+    def authorize_form_params
+      super.tap do |params|
+        %w[code_challenge code_challenge_method].each do |param_name|
+          if (param_value = param_or_nil(param_name))
+            params << { "name" => param_name, "value" => param_value, "type" => "hidden" }
+          end
+        end
+      end
+    end
 
     private
 
@@ -70,13 +80,8 @@ module Rodauth
         # Reject the weak "plain" transform unless it has been explicitly opted into. This runs
         # before the supported-method check so the disabled method surfaces a meaningful error
         # instead of the generic "code challenge required".
-        if challenge_method == "plain" && !oauth_pkce_allow_plain_method
-          redirect_response_error("unsupported_transform_algorithm")
-        end
+        redirect_response_error("unsupported_transform_algorithm") if challenge_method == "plain" && !oauth_pkce_allow_plain_method
 
-        # An omitted code_challenge_method (nil) is not a member of the supported set, so it is
-        # rejected here: rather than defaulting to "plain" (RFC 7636 §4.3), this server requires
-        # the method to be stated explicitly so a disabled "plain" can never be implicitly chosen.
         redirect_response_error("code_challenge_required") unless oauth_pkce_challenge_methods.include?(challenge_method)
       else
         return unless oauth_require_pkce

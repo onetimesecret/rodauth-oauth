@@ -264,7 +264,7 @@ module Rodauth
                    elsif jws_key
                      JSON::JWT.decode(token, jws_key)
                    else
-                     JSON::JWT.decode(token, nil, jws_algorithm)
+                     JSON::JWT.decode(token, (:skip_verification if jws_algorithm == "none"), jws_algorithm)
                    end
                  elsif (jwks = auth_server_jwks_set)
                    JSON::JWT.decode(token, JSON::JWK::Set.new(jwks))
@@ -531,7 +531,7 @@ module Rodauth
         JWT.decode(token, nil, false)
       end
     else
-      # :nocov:
+      # simplecov:enable
       def jwk_export(_key)
         raise "#{__method__} is undefined, redefine it or require either \"jwt\" or \"json-jwt\""
       end
@@ -555,7 +555,7 @@ module Rodauth
       def private_jwk?(_jwk)
         raise "#{__method__} is undefined, redefine it or require either \"jwt\" or \"json-jwt\""
       end
-      # :nocov:
+      # simplecov:disable
     end
   end
 end

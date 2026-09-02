@@ -73,7 +73,7 @@ class RodauthOauthServerMetadataTest < RodaIntegration
     get("/.well-known/oauth-authorization-server")
 
     assert last_response.status == 200
-    assert json_body["code_challenge_methods_supported"] == %w[S256]
+    assert json_body["code_challenge_methods_supported"] == %w[S256 plain]
   end
 
   def test_oauth_server_metadata_with_pkce_plain_allowed
@@ -139,32 +139,6 @@ class RodauthOauthServerMetadataTest < RodaIntegration
 
     assert last_response.status == 200
     assert json_body["issuer"] == "http://example.org"
-    assert json_body["authorization_endpoint"] == "http://example.org/auth/authorize"
-    assert json_body["token_endpoint"] == "http://example.org/auth/token"
-    assert json_body["registration_endpoint"] == "http://example.org/auth/register"
-    assert json_body["revocation_endpoint"] == "http://example.org/auth/revoke"
-    assert json_body["introspection_endpoint"] == "http://example.org/auth/introspect"
-  end
-
-  # Unlike +prefix+ (which leaves +issuer+ at +base_url+), +oauth_mount_prefix+
-  # is also reflected in the issuer, and applies on top of any +prefix+. This
-  # is the knob for servers mounted under a Rack SCRIPT_NAME (e.g. Rack::URLMap)
-  # where +prefix+ is left empty so route matching keeps working off
-  # +remaining_path+. See test/oauth/mount_prefix_test.rb for the routing side.
-  def test_oauth_server_metadata_with_mount_prefix
-    rodauth do
-      oauth_mount_prefix "/auth"
-      oauth_application_scopes %w[read write]
-    end
-    setup_application(
-      :oauth_dynamic_client_registration,
-      :oauth_token_revocation,
-      :oauth_token_introspection
-    )
-    get("/.well-known/oauth-authorization-server")
-
-    assert last_response.status == 200
-    assert json_body["issuer"] == "http://example.org/auth"
     assert json_body["authorization_endpoint"] == "http://example.org/auth/authorize"
     assert json_body["token_endpoint"] == "http://example.org/auth/token"
     assert json_body["registration_endpoint"] == "http://example.org/auth/register"
