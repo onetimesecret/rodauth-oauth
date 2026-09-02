@@ -32,6 +32,39 @@ class RodauthOauthClientRegistrationTest < RodaIntegration
     verify_oauth_application_attributes(oauth_application, json_body)
   end
 
+  def test_put_oauth_application_client_secret
+    setup_application
+
+    put "/register/#{oauth_application[:client_id]}", {
+      "client_secret" => "WRONG_SECRET"
+    }
+    assert last_response.status == 401
+  end
+
+  def test_put_oauth_application_only_updates_authenticated_client
+    setup_application
+
+    # authenticated client (Bearer CLIENT_TOKEN, set in setup_application)
+    attacker = oauth_application
+    victim = set_oauth_application(
+      name: "Victim",
+      client_id: "VICTIM_ID",
+      client_secret: generate_client_secret("VICTIM_SECRET"),
+      registration_access_token: generate_client_secret("VICTIM_TOKEN"),
+      redirect_uri: "https://victim.example/callback"
+    )
+
+    put "/register/#{attacker[:client_id]}", {
+      "client_name" => "pwned",
+      "redirect_uris" => %w[https://attacker.example/callback]
+    }
+    assert last_response.status == 200
+
+    victim_row = db[:oauth_applications].where(client_id: victim[:client_id]).first
+    assert_equal "Victim", victim_row[:name]
+    assert_equal "https://victim.example/callback", victim_row[:redirect_uri]
+  end
+
   def test_delete_oauth_application
     setup_application
 

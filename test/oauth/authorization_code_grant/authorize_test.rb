@@ -179,6 +179,24 @@ class RodauthOauthAuthorizeTest < RodaIntegration
     assert oauth_grant[:access_type] == "offline"
   end
 
+  def test_authorize_post_authorize_no_scopes_selected
+    setup_application
+    login
+
+    # show the authorization form
+    visit "/authorize?client_id=#{oauth_application[:client_id]}&response_type=code&scope=user.read+user.write"
+    assert page.current_path == "/authorize",
+           "was redirected instead to #{page.current_path}"
+
+    # submit the form without ticking any scope checkbox
+    click_button "Authorize"
+
+    assert page.current_url.include?("?error=invalid_scope"),
+           "was redirected instead to #{page.current_url}"
+    assert db[:oauth_grants].none?,
+           "a grant has been created without any approved scope"
+  end
+
   def test_authorize_post_authorize_access_type_disabled
     rodauth do
       use_oauth_access_type? false

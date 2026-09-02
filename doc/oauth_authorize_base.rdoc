@@ -6,6 +6,49 @@ It implements the Authorization Request form page.
 
 This feature depends on the oauth_base feature.
 
+== The authorization form
+
+The authorization request parameters are validated when the authorization form is rendered, and when it is submitted.
+
+This matters when you write your own +authorize_view+ instead of using the bundled one; query params passed to the authorization form need to be part of the submitted params.
+
+For that reason, the recommendation is to copy the bundled template and apply your changes on top of it.
+
+Under plain roda, copy it out of the gem into your views directory. It has to be named after the view, that is +authorize+, with the extension of whichever engine the +render+ plugin is set up for:
+
+    cp "$(bundle info rodauth-oauth --path)/templates/authorize.str" views/authorize.str
+
+Under rails, the generator writes it for you:
+
+    bundle exec rails generate rodauth:oauth:views
+    # copies the authorize form to app/views/rodauth/authorize.html.erb
+
+The bundled template is written for the +str+ engine, so an application whose +render+ plugin uses another one, such as the default +erb+, has to port the interpolations over while adapting it.
+
+The authorization form parameters are rendered using the +authorize_form_params+ auth method:
+
+    #{
+      rodauth.authorize_form_params.map do |field|
+        "<input type=\"#{h(field["type"])}\" name=\"#{h(field["name"])}\" value=\"#{h(field["value"])}\"/>"
+      end.join
+    }
+
+Each feature adds its own required form params to it, thereby incorporating them into the authorization form, as new features are added.
+
+To carry over a param of your own, just extend the method:
+
+    authorize_form_params do
+      super().tap do |params|
+        if (tenant = param_or_nil("tenant"))
+          params << { "name" => "tenant", "value" => tenant, "type" => "hidden" }
+        end
+      end
+    end
+
+Scopes are the exception, as the resource owner picks those. The form renders a checkbox per entry in +authorize_scopes+, other than <tt>"offline_access"</tt> under the +oidc+ feature, which is carried over as a hidden <tt>scope[]</tt> entry because it is not granted separately.
+
+The one part which is not a form field at all is the cancel action, a link to the client's +redirect_uri+ carrying <tt>error=access_denied</tt> and the +state+, rather than a submission of the form.
+
 == Auth Value Methods
 
 oauth_authorize_button :: Label of Authorize form button.
@@ -36,3 +79,4 @@ before_authorize :: Run arbitrary code before executing an "authorize" endpoint.
 after_authorize :: Run arbitrary code after authorizing a request.
 authorize_view :: The HTML of the Authorize form.
 authorize_error_view :: The HTML of the Authorize error page.
+authorize_form_params :: the authorization request params which the authorize form has to carry over into the POST it submits, one entry per field, each with the "name", "value" and "type" it is rendered with. Features which introduce authorization request params of their own extend it, so a view which renders all of them keeps working as features get enabled. Extend it as well to carry over a param of your own.

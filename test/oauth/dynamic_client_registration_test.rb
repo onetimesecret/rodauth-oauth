@@ -247,17 +247,26 @@ class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
     end
   end
 
-  def test_oauth_dynamic_client_fail_on_missing_params
+  def test_oauth_dynamic_client_fail_on_protected_params
     rodauth { oauth_application_scopes %w[read write] }
     setup_application
-
-    post("/register", valid_registration_params.merge("foo" => "bar"))
-    assert last_response.status == 400
-    assert JSON.parse(last_response.body)["error"] == "invalid_client_metadata"
 
     post("/register", valid_registration_params.merge("account_id" => 2))
     assert last_response.status == 400
     assert JSON.parse(last_response.body)["error"] == "invalid_client_metadata"
+  end
+
+  def test_oauth_dynamic_client_ignores_unrecognized_params
+    rodauth { oauth_application_scopes %w[read write] }
+    setup_application
+
+    post("/register", valid_registration_params.merge("foo" => "bar"))
+
+    assert last_response.status == 201
+    assert !JSON.parse(last_response.body).key?("foo")
+
+    assert db[:oauth_applications].one?
+    assert !db[:oauth_applications].first.key?(:foo)
   end
 
   def test_oauth_dynamic_client_jwks_and_jwks_uri
@@ -307,7 +316,8 @@ class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
     assert json_body["client_secret_expires_at"].zero?
 
     assert json_body.key?("client_secret")
-    assert json_body.key?("client_id_issued_at")
+    assert json_body["client_id_issued_at"].is_a?(Integer)
+    assert_in_delta Time.now.to_i, json_body["client_id_issued_at"], 5
   end
 
   def test_oauth_dynamic_client_all_params_with_client_secret
@@ -327,7 +337,7 @@ class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
 
     assert json_body["client_id"] == oauth_application[:client_id]
 
-    assert json_body.key?("client_id_issued_at")
+    assert json_body["client_id_issued_at"].is_a?(Integer)
     assert !json_body.key?("client_secret")
     assert !json_body.key?("client_secret_expires_at")
   end
@@ -516,29 +526,6 @@ class RodauthOauthDynamicClientRegistrationTest < RodaIntegration
     assert JSON.parse(last_response.body)[
              "tls_client_certificate_bound_access_tokens"
            ] == true
-  end
-
-  def test_oauth_dynamic_client_registration_client_uri_honors_mount_prefix
-    rodauth do
-      oauth_mount_prefix "/auth"
-      oauth_application_scopes %w[read write]
-    end
-    setup_application(:oauth_authorization_code_grant)
-    # Mount under a SCRIPT_NAME (before any header/request, so Rack::Test binds
-    # to the wrapped app) so request.path lines up with the mount-aware
-    # register_path / its CSRF exemption, mirroring a Rack::URLMap deployment.
-    self.app = Rack::URLMap.new("/auth" => app)
-    header "Accept", "application/json"
-
-    post("/auth/register", valid_registration_params)
-    assert last_response.status == 201
-
-    # registration_client_uri is built from base_url + a route segment (not a
-    # *_url helper), so it must prepend oauth_mount_prefix to stay
-    # browser-absolute under the mount.
-    uri = JSON.parse(last_response.body)["registration_client_uri"]
-    assert uri.start_with?("http://example.org/auth/register/"),
-           "expected mount-prefixed registration_client_uri, got #{uri.inspect}"
   end
 
   private

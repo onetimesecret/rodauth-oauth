@@ -215,7 +215,7 @@ class RodauthOAuthMountPrefixTest < RodaIntegration
           token authorize userinfo revoke introspect jwks
           register par device_authorization device
         ]
-        paths = names.each_with_object({}) { |name, h| h[name] = rodauth.public_send(:"#{name}_path") }
+        paths = names.to_h { |name| [name, rodauth.public_send(:"#{name}_path")] }
         rodauth.request.halt([200, { "content-type" => "application/json" }, [paths.to_json]])
       end
     end
